@@ -1,6 +1,7 @@
 from prometheus_client import Gauge, Counter, Histogram
 from datetime import datetime
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -11,22 +12,27 @@ class ChatMetricsCollector:
         self.db = db
 
         # Chat counts
-        self.total_chats = Gauge('openwebui_chats_total', 'Total number of chats')
-        self.active_chats = Gauge('openwebui_chats_active', 'Number of non-archived chats')
-        self.archived_chats = Gauge('openwebui_chats_archived', 'Number of archived chats')
-        self.pinned_chats = Gauge('openwebui_chats_pinned', 'Number of pinned chats')
+        self.total_chats = Gauge('openwebui_chats_total', 'Total number of chats',
+                               ['model_name'])
+        self.active_chats = Gauge('openwebui_chats_active', 'Number of non-archived chats',
+                                ['model_name'])
+        self.archived_chats = Gauge('openwebui_chats_archived', 'Number of archived chats',
+                                  ['model_name'])
+        self.pinned_chats = Gauge('openwebui_chats_pinned', 'Number of pinned chats',
+                                ['model_name'])
 
         # Chat metrics by user
         self.chats_by_user = Gauge('openwebui_chats_by_user',
                                  'Number of chats per user',
-                                 ['user_id', 'user_name'])
+                                 ['user_id', 'user_name', 'model_name'])
 
         # Shared chats
         self.shared_chats = Gauge('openwebui_chats_shared', 'Number of shared chats')
 
         # Chat activity
         self.chat_messages = Gauge('openwebui_chat_messages_total',
-                                'Total number of chat messages')
+                                'Total number of chat messages',
+                                ['model_name'])
         self.chat_age = Histogram('openwebui_chat_age_seconds',
                                'Age of chats in seconds',
                                buckets=[3600, 86400, 604800, 2592000, 7776000]) # 1h, 1d, 1w, 30d, 90d
@@ -44,32 +50,84 @@ class ChatMetricsCollector:
         """Collect all chat-related metrics"""
         try:
             with self.db.cursor() as cur:
-                # Total chats
-                cur.execute("SELECT COUNT(*) FROM public.chat")
-                self.total_chats.set(cur.fetchone()[0])
-
-                # Active vs archived chats
-                cur.execute("SELECT COUNT(*) FROM public.chat WHERE archived = false")
-                self.active_chats.set(cur.fetchone()[0])
-
-                cur.execute("SELECT COUNT(*) FROM public.chat WHERE archived = true")
-                self.archived_chats.set(cur.fetchone()[0])
-
-                # Pinned chats
-                cur.execute("SELECT COUNT(*) FROM public.chat WHERE pinned = true")
-                self.pinned_chats.set(cur.fetchone()[0])
-
-                # Chats by user with user names
+                # Total chats by model
                 cur.execute("""
-                    SELECT c.user_id, u.name, COUNT(*)
+                    SELECT
+                        model_name,
+                        COUNT(*)
+                    FROM public.chat c
+                    CROSS JOIN LATERAL (
+                        SELECT json_array_elements_text(c.chat->'models') as model_name
+                    ) m
+                    GROUP BY model_name
+                """)
+                for model_name, count in cur.fetchall():
+                    self.total_chats.labels(model_name=model_name).set(count)
+
+                # Active chats by model
+                cur.execute("""
+                    SELECT
+                        model_name,
+                        COUNT(*)
+                    FROM public.chat c
+                    CROSS JOIN LATERAL (
+                        SELECT json_array_elements_text(c.chat->'models') as model_name
+                    ) m
+                    WHERE archived = false
+                    GROUP BY model_name
+                """)
+                for model_name, count in cur.fetchall():
+                    self.active_chats.labels(model_name=model_name).set(count)
+
+                # Archived chats by model
+                cur.execute("""
+                    SELECT
+                        model_name,
+                        COUNT(*)
+                    FROM public.chat c
+                    CROSS JOIN LATERAL (
+                        SELECT json_array_elements_text(c.chat->'models') as model_name
+                    ) m
+                    WHERE archived = true
+                    GROUP BY model_name
+                """)
+                for model_name, count in cur.fetchall():
+                    self.archived_chats.labels(model_name=model_name).set(count)
+
+                # Pinned chats by model
+                cur.execute("""
+                    SELECT
+                        model_name,
+                        COUNT(*)
+                    FROM public.chat c
+                    CROSS JOIN LATERAL (
+                        SELECT json_array_elements_text(c.chat->'models') as model_name
+                    ) m
+                    WHERE pinned = true
+                    GROUP BY model_name
+                """)
+                for model_name, count in cur.fetchall():
+                    self.pinned_chats.labels(model_name=model_name).set(count)
+
+                # Chats by user and model with user names
+                cur.execute("""
+                    SELECT
+                        c.user_id,
+                        u.name as user_name,
+                        model_name,
+                        COUNT(*)
                     FROM public.chat c
                     JOIN public.user u ON c.user_id = u.id
-                    GROUP BY c.user_id, u.name
+                    CROSS JOIN LATERAL (
+                        SELECT json_array_elements_text(c.chat->'models') as model_name
+                    ) m
+                    GROUP BY c.user_id, u.name, model_name
                 """)
-                for user_id, user_name, count in cur.fetchall():
+                for user_id, user_name, model_name, count in cur.fetchall():
                     self.chats_by_user.labels(
                         user_id=user_id,
-                        user_name=user_name
+                        user_name=user_name,
+                        model_name=model_name
                     ).set(count)
 
                 # Shared chats
@@ -108,13 +166,20 @@ class ChatMetricsCollector:
                         user_name=user_name
                     ).set(count)
 
-                # Message count estimation (from chat JSON)
+                # Message count by model
                 cur.execute("""
-                    SELECT COUNT(*)
-                    FROM public.chat
+                    SELECT
+                        model_name,
+                        COUNT(*)
+                    FROM public.chat c
+                    CROSS JOIN LATERAL (
+                        SELECT json_array_elements_text(c.chat->'models') as model_name
+                    ) m
                     WHERE chat IS NOT NULL
+                    GROUP BY model_name
                 """)
-                self.chat_messages.set(cur.fetchone()[0])
+                for model_name, count in cur.fetchall():
+                    self.chat_messages.labels(model_name=model_name).set(count)
 
         except Exception as e:
             logger.error(f"Error collecting chat metrics: {e}")

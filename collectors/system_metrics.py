@@ -15,20 +15,6 @@ class SystemMetricsCollector:
         self.config_update_time = Gauge('openwebui_config_last_update',
                                      'Timestamp of last configuration update')
 
-        # Migration metrics
-        self.total_migrations = Gauge('openwebui_migrations_total',
-                                   'Total number of database migrations')
-        self.last_migration_time = Gauge('openwebui_last_migration_timestamp',
-                                      'Timestamp of last database migration')
-
-        # Database table metrics
-        self.table_sizes = Gauge('openwebui_table_size_bytes',
-                               'Size of database tables in bytes',
-                               ['table_name'])
-        self.table_rows = Gauge('openwebui_table_rows',
-                              'Number of rows in database tables',
-                              ['table_name'])
-
         # Group metrics
         self.total_groups = Gauge('openwebui_groups_total', 'Total number of groups')
         self.users_in_groups = Gauge('openwebui_users_in_groups',
@@ -60,44 +46,6 @@ class SystemMetricsCollector:
                     version, updated_at = result
                     self.config_version.set(version)
                     self.config_update_time.set(updated_at)
-
-                # Migration metrics
-                cur.execute("SELECT COUNT(*) FROM public.migratehistory")
-                self.total_migrations.set(cur.fetchone()[0])
-
-                cur.execute("""
-                    SELECT extract(epoch from migrated_at)
-                    FROM public.migratehistory
-                    ORDER BY id DESC
-                    LIMIT 1
-                """)
-                result = cur.fetchone()
-                if result:
-                    self.last_migration_time.set(result[0])
-
-                # Table statistics
-                # Get table sizes
-                cur.execute("""
-                    SELECT
-                        schemaname || '.' || tablename as table_name,
-                        pg_total_relation_size(schemaname || '.' || tablename) as total_bytes
-                    FROM pg_catalog.pg_tables
-                    WHERE schemaname = 'public'
-                """)
-                for table_name, total_bytes in cur.fetchall():
-                    self.table_sizes.labels(table_name=table_name).set(total_bytes)
-
-                # Get row counts for each table
-                tables_query = """
-                    SELECT schemaname || '.' || tablename as table_name
-                    FROM pg_catalog.pg_tables
-                    WHERE schemaname = 'public'
-                """
-                cur.execute(tables_query)
-                for (table_name,) in cur.fetchall():
-                    cur.execute(f"SELECT COUNT(*) FROM {table_name}")
-                    row_count = cur.fetchone()[0]
-                    self.table_rows.labels(table_name=table_name).set(row_count)
 
                 # Group metrics with names
                 cur.execute("SELECT COUNT(*) FROM public.group")

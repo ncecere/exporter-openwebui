@@ -108,10 +108,6 @@ Key configuration features:
 ### System Metrics
 - `openwebui_config_version`: Current configuration version
 - `openwebui_config_last_update`: Timestamp of last configuration update
-- `openwebui_migrations_total`: Total number of database migrations
-- `openwebui_last_migration_timestamp`: Timestamp of last database migration
-- `openwebui_table_size_bytes`: Size of database tables in bytes
-- `openwebui_table_rows`: Number of rows in database tables
 - `openwebui_groups_total`: Total number of groups
 - `openwebui_users_in_groups`: Number of users in groups
 - `openwebui_feedback_total`: Total number of feedback entries
