@@ -5,7 +5,32 @@ All notable changes to the OpenWebUI Prometheus Exporter will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2023-12-07
+## [1.0.2] - 2023-12-07
+
+### Added
+- Human-readable labels for all metrics:
+  - User names alongside user IDs
+  - Model names alongside model IDs
+  - Function names alongside function types
+  - Tool names in tool metrics
+  - Folder names in folder metrics
+  - Group names and owner information
+  - Collection names for documents
+  - Knowledge base names
+
+### Changed
+- Updated all collectors to include both ID and name-based labels
+- Improved metric readability and usability
+- Enhanced query joins to fetch related names
+
+## [1.0.1] - 2023-12-07
+
+### Fixed
+- Fixed system metrics collector to use proper PostgreSQL queries for table statistics
+- Removed dependency on pg_catalog.pg_statio_user_tables.reltuples
+- Improved table size and row count collection methods
+
+## [1.0.0] - 2023-12-07
 
 ### Added
 - Initial release of OpenWebUI Prometheus Exporter
