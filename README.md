@@ -69,13 +69,13 @@ Key configuration features:
 - `openwebui_user_last_active_seconds`: Timestamp of last user activity
 
 ### Chat Metrics
-- `openwebui_chats_total`: Total number of chats
-- `openwebui_chats_active`: Number of non-archived chats
-- `openwebui_chats_archived`: Number of archived chats
-- `openwebui_chats_pinned`: Number of pinned chats
-- `openwebui_chats_by_user`: Number of chats per user
+- `openwebui_chats_total{model_name="..."}`: Total number of chats by model
+- `openwebui_chats_active{model_name="..."}`: Number of non-archived chats by model
+- `openwebui_chats_archived{model_name="..."}`: Number of archived chats by model
+- `openwebui_chats_pinned{model_name="..."}`: Number of pinned chats by model
+- `openwebui_chats_by_user{model_name="..."}`: Number of chats per user by model
 - `openwebui_chats_shared`: Number of shared chats
-- `openwebui_chat_messages_total`: Total number of chat messages
+- `openwebui_chat_messages_total{model_name="..."}`: Total number of chat messages by model
 - `openwebui_chat_age_seconds`: Age distribution of chats
 - `openwebui_folders_total`: Total number of chat folders
 - `openwebui_chats_in_folders`: Number of chats organized in folders
@@ -84,7 +84,7 @@ Key configuration features:
 - `openwebui_documents_total`: Total number of documents
 - `openwebui_documents_by_collection`: Number of documents by collection
 - `openwebui_documents_by_user`: Number of documents per user
-- `openwebui_files_total`: Total number of files
+- `openwebui_files_total{knowledge_base_id="...",knowledge_base_name="..."}`: Total number of files by knowledge base
 - `openwebui_files_by_user`: Number of files per user
 - `openwebui_knowledge_bases_total`: Total number of knowledge bases
 - `openwebui_knowledge_bases_by_user`: Number of knowledge bases per user

@@ -5,6 +5,21 @@ All notable changes to the OpenWebUI Prometheus Exporter will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2024-12-07
+
+### Changed
+- Improved chat metrics to properly extract model names from chat messages
+- Enhanced file metrics to show accurate knowledge base relationships
+- Updated document metrics collector to properly handle file-to-knowledge-base mappings
+- Removed sensitive information from docker-compose.yml
+
+### Removed
+- Removed the following metrics:
+  - openwebui_table_size_bytes
+  - openwebui_table_rows
+  - openwebui_last_migration_timestamp
+  - openwebui_migrations_total
+
 ## [1.0.2] - 2023-12-07
 
 ### Added
@@ -23,14 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved metric readability and usability
 - Enhanced query joins to fetch related names
 
-## [1.0.1] - 2023-12-07
+## [1.0.1] - 2023-12-06
 
 ### Fixed
 - Fixed system metrics collector to use proper PostgreSQL queries for table statistics
 - Removed dependency on pg_catalog.pg_statio_user_tables.reltuples
 - Improved table size and row count collection methods
 
-## [1.0.0] - 2023-12-07
+## [1.0.0] - 2023-12-05
 
 ### Added
 - Initial release of OpenWebUI Prometheus Exporter

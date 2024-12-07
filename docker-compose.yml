@@ -2,16 +2,16 @@ services:
   exporter:
     build: .
     ports:
-      - "9090:9090"
+      - "9091:9090"
     environment:
       - OPENWEBUI_DB_NAME=openwebui
-      - OPENWEBUI_DB_USER=openwebui_exporter
-      - OPENWEBUI_DB_PASSWORD=your_secure_password
-      - OPENWEBUI_DB_HOST=postgres
+      - OPENWEBUI_DB_USER=openwebui
+      - OPENWEBUI_DB_PASSWORD=your_password_here
+      - OPENWEBUI_DB_HOST=localhost
       - OPENWEBUI_DB_PORT=5432
       - DB_MIN_CONNECTIONS=5
       - DB_MAX_CONNECTIONS=20
-      - METRICS_UPDATE_INTERVAL=15m
+      - METRICS_UPDATE_INTERVAL=1m
       - METRICS_REQUEST_WINDOW=24h
       - METRICS_ERROR_WINDOW=1h
     restart: unless-stopped

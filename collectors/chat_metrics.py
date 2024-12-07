@@ -52,13 +52,18 @@ class ChatMetricsCollector:
             with self.db.cursor() as cur:
                 # Total chats by model
                 cur.execute("""
+                    WITH chat_models AS (
+                        SELECT DISTINCT
+                            c.id,
+                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                        FROM public.chat c
+                        WHERE c.chat->'messages' IS NOT NULL
+                    )
                     SELECT
                         model_name,
-                        COUNT(*)
-                    FROM public.chat c
-                    CROSS JOIN LATERAL (
-                        SELECT json_array_elements_text(c.chat->'models') as model_name
-                    ) m
+                        COUNT(DISTINCT id)
+                    FROM chat_models
+                    WHERE model_name IS NOT NULL
                     GROUP BY model_name
                 """)
                 for model_name, count in cur.fetchall():
@@ -66,14 +71,19 @@ class ChatMetricsCollector:
 
                 # Active chats by model
                 cur.execute("""
+                    WITH chat_models AS (
+                        SELECT DISTINCT
+                            c.id,
+                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                        FROM public.chat c
+                        WHERE c.chat->'messages' IS NOT NULL
+                        AND c.archived = false
+                    )
                     SELECT
                         model_name,
-                        COUNT(*)
-                    FROM public.chat c
-                    CROSS JOIN LATERAL (
-                        SELECT json_array_elements_text(c.chat->'models') as model_name
-                    ) m
-                    WHERE archived = false
+                        COUNT(DISTINCT id)
+                    FROM chat_models
+                    WHERE model_name IS NOT NULL
                     GROUP BY model_name
                 """)
                 for model_name, count in cur.fetchall():
@@ -81,14 +91,19 @@ class ChatMetricsCollector:
 
                 # Archived chats by model
                 cur.execute("""
+                    WITH chat_models AS (
+                        SELECT DISTINCT
+                            c.id,
+                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                        FROM public.chat c
+                        WHERE c.chat->'messages' IS NOT NULL
+                        AND c.archived = true
+                    )
                     SELECT
                         model_name,
-                        COUNT(*)
-                    FROM public.chat c
-                    CROSS JOIN LATERAL (
-                        SELECT json_array_elements_text(c.chat->'models') as model_name
-                    ) m
-                    WHERE archived = true
+                        COUNT(DISTINCT id)
+                    FROM chat_models
+                    WHERE model_name IS NOT NULL
                     GROUP BY model_name
                 """)
                 for model_name, count in cur.fetchall():
@@ -96,14 +111,19 @@ class ChatMetricsCollector:
 
                 # Pinned chats by model
                 cur.execute("""
+                    WITH chat_models AS (
+                        SELECT DISTINCT
+                            c.id,
+                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                        FROM public.chat c
+                        WHERE c.chat->'messages' IS NOT NULL
+                        AND c.pinned = true
+                    )
                     SELECT
                         model_name,
-                        COUNT(*)
-                    FROM public.chat c
-                    CROSS JOIN LATERAL (
-                        SELECT json_array_elements_text(c.chat->'models') as model_name
-                    ) m
-                    WHERE pinned = true
+                        COUNT(DISTINCT id)
+                    FROM chat_models
+                    WHERE model_name IS NOT NULL
                     GROUP BY model_name
                 """)
                 for model_name, count in cur.fetchall():
@@ -111,17 +131,24 @@ class ChatMetricsCollector:
 
                 # Chats by user and model with user names
                 cur.execute("""
+                    WITH chat_models AS (
+                        SELECT DISTINCT
+                            c.id,
+                            c.user_id,
+                            u.name as user_name,
+                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                        FROM public.chat c
+                        JOIN public.user u ON c.user_id = u.id
+                        WHERE c.chat->'messages' IS NOT NULL
+                    )
                     SELECT
-                        c.user_id,
-                        u.name as user_name,
+                        user_id,
+                        user_name,
                         model_name,
-                        COUNT(*)
-                    FROM public.chat c
-                    JOIN public.user u ON c.user_id = u.id
-                    CROSS JOIN LATERAL (
-                        SELECT json_array_elements_text(c.chat->'models') as model_name
-                    ) m
-                    GROUP BY c.user_id, u.name, model_name
+                        COUNT(DISTINCT id)
+                    FROM chat_models
+                    WHERE model_name IS NOT NULL
+                    GROUP BY user_id, user_name, model_name
                 """)
                 for user_id, user_name, model_name, count in cur.fetchall():
                     self.chats_by_user.labels(
@@ -168,14 +195,18 @@ class ChatMetricsCollector:
 
                 # Message count by model
                 cur.execute("""
+                    WITH chat_models AS (
+                        SELECT DISTINCT
+                            c.id,
+                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                        FROM public.chat c
+                        WHERE c.chat->'messages' IS NOT NULL
+                    )
                     SELECT
                         model_name,
-                        COUNT(*)
-                    FROM public.chat c
-                    CROSS JOIN LATERAL (
-                        SELECT json_array_elements_text(c.chat->'models') as model_name
-                    ) m
-                    WHERE chat IS NOT NULL
+                        COUNT(DISTINCT id)
+                    FROM chat_models
+                    WHERE model_name IS NOT NULL
                     GROUP BY model_name
                 """)
                 for model_name, count in cur.fetchall():

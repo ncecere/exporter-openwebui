@@ -79,8 +79,7 @@ class DocumentMetricsCollector:
                         user_name=user_name
                     ).set(count)
 
-                # File metrics with knowledge base info
-                # First, set total files with no knowledge base (system-wide)
+                # First, set total files count (system-wide)
                 cur.execute("SELECT COUNT(*) FROM public.file")
                 total_count = cur.fetchone()[0]
                 self.total_files.labels(
@@ -91,15 +90,15 @@ class DocumentMetricsCollector:
                 # Then set files per knowledge base
                 cur.execute("""
                     SELECT
-                        COALESCE(f.meta->>'knowledge_base_id', 'none') as kb_id,
-                        COALESCE(k.name, 'system') as kb_name,
-                        COUNT(*)
-                    FROM public.file f
-                    LEFT JOIN public.knowledge k ON k.id = f.meta->>'knowledge_base_id'
-                    GROUP BY kb_id, kb_name
+                        k.id as kb_id,
+                        k.name as kb_name,
+                        COUNT(f.id) as file_count
+                    FROM public.knowledge k
+                    LEFT JOIN public.file f ON f.meta->>'collection_name' = k.id
+                    GROUP BY k.id, k.name
                 """)
                 for kb_id, kb_name, count in cur.fetchall():
-                    if kb_id != 'none':  # Skip the system-wide count we already set
+                    if kb_id:  # Only set if we have a valid knowledge base
                         self.total_files.labels(
                             knowledge_base_id=kb_id,
                             knowledge_base_name=kb_name
