@@ -16,7 +16,9 @@ A Prometheus exporter for OpenWebUI that provides detailed metrics about users, 
   - AI models and tools
   - System configuration and health
 
-## Quick Start
+## Deployment Options
+
+### Quick Start with Docker Compose
 
 1. Clone this repository:
 ```bash
@@ -24,29 +26,46 @@ git clone https://github.com/yourusername/exporter-openwebui.git
 cd exporter-openwebui
 ```
 
-2. Install dependencies:
+2. Configure environment variables in docker-compose.yml:
+```yaml
+environment:
+  - OPENWEBUI_DB_PASSWORD=your_password_here
+  - OPENWEBUI_DB_HOST=your_db_host
+```
+
+3. Start the exporter:
 ```bash
-pip install -r requirements.txt
+docker-compose up -d
 ```
 
-3. Configure environment variables:
+### Kubernetes Deployment
+
+1. Clone this repository:
 ```bash
-# Required
-export OPENWEBUI_DB_PASSWORD=your_password
-
-# Optional - see ENV-VARS.md for all options
-export METRICS_PORT=9090
-export METRICS_UPDATE_INTERVAL=15m
+git clone https://github.com/yourusername/exporter-openwebui.git
+cd exporter-openwebui
 ```
 
-4. Start the exporter:
+2. Edit k8s/deployment.yaml to configure your database connection:
+```yaml
+# In ConfigMap section
+data:
+  OPENWEBUI_DB_HOST: "your_db_host"
+
+# In Secret section
+stringData:
+  OPENWEBUI_DB_PASSWORD: "your_password_here"
+```
+
+3. Apply the Kubernetes manifests:
 ```bash
-python main.py
+kubectl apply -f k8s/deployment.yaml
 ```
 
-The exporter will start on the configured port (default: 9090). Metrics will be available at:
+The exporter will start on port 9090. Metrics will be available at:
 ```
-http://localhost:9090/metrics
+http://localhost:9090/metrics  # Docker Compose
+http://openwebui-exporter:9090/metrics  # Kubernetes
 ```
 
 ## Configuration
@@ -122,7 +141,9 @@ scrape_configs:
   - job_name: 'openwebui'
     scrape_interval: 15s
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['localhost:9090']  # Docker Compose
+      # Or for Kubernetes:
+      # - targets: ['openwebui-exporter:9090']
 ```
 
 ## Development

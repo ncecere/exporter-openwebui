@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openwebui-exporter-secrets
+type: Opaque
+stringData:
+  OPENWEBUI_DB_PASSWORD: "your_password_here"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openwebui-exporter-config
+data:
+  OPENWEBUI_DB_NAME: "openwebui"
+  OPENWEBUI_DB_USER: "openwebui"
+  OPENWEBUI_DB_HOST: "your_db_host"
+  OPENWEBUI_DB_PORT: "5432"
+  DB_MIN_CONNECTIONS: "5"
+  DB_MAX_CONNECTIONS: "20"
+  METRICS_UPDATE_INTERVAL: "1m"
+  METRICS_REQUEST_WINDOW: "24h"
+  METRICS_ERROR_WINDOW: "1h"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openwebui-exporter
+  labels:
+    app: openwebui-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openwebui-exporter
+  template:
+    metadata:
+      labels:
+        app: openwebui-exporter
+    spec:
+      containers:
+      - name: exporter
+        image: ghcr.io/ncecere/exporter-openwebui:v1.1.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9090
+          name: metrics
+        envFrom:
+        - configMapRef:
+            name: openwebui-exporter-config
+        - secretRef:
+            name: openwebui-exporter-secrets
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openwebui-exporter
+  labels:
+    app: openwebui-exporter
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9090
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    app: openwebui-exporter
