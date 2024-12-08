@@ -20,33 +20,26 @@ A Prometheus exporter for OpenWebUI that provides detailed metrics about users, 
 
 ### Quick Start with Docker Compose
 
-1. Clone this repository:
-```bash
-git clone https://github.com/yourusername/exporter-openwebui.git
-cd exporter-openwebui
-```
-
-2. Configure environment variables in docker-compose.yml:
+1. Create a docker-compose.yml file:
 ```yaml
-environment:
-  - OPENWEBUI_DB_PASSWORD=your_password_here
-  - OPENWEBUI_DB_HOST=your_db_host
+services:
+  exporter:
+    image: nicholascecere/exporter-openwebui:latest
+    ports:
+      - "9091:9090"
+    environment:
+      - OPENWEBUI_DB_PASSWORD=your_password_here
+      - OPENWEBUI_DB_HOST=your_db_host
 ```
 
-3. Start the exporter:
+2. Start the exporter:
 ```bash
 docker-compose up -d
 ```
 
 ### Kubernetes Deployment
 
-1. Clone this repository:
-```bash
-git clone https://github.com/yourusername/exporter-openwebui.git
-cd exporter-openwebui
-```
-
-2. Edit k8s/deployment.yaml to configure your database connection:
+1. Create or download the k8s/deployment.yaml file and configure your database connection:
 ```yaml
 # In ConfigMap section
 data:
@@ -57,7 +50,7 @@ stringData:
   OPENWEBUI_DB_PASSWORD: "your_password_here"
 ```
 
-3. Apply the Kubernetes manifests:
+2. Apply the Kubernetes manifests:
 ```bash
 kubectl apply -f k8s/deployment.yaml
 ```

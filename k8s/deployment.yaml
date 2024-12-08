@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
       - name: exporter
-        image: ghcr.io/ncecere/exporter-openwebui:v1.1.0
+        image: nicholascecere/exporter-openwebui:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9090
