@@ -1,6 +1,6 @@
 services:
   exporter:
-    build: .
+    image: ghcr.io/ncecere/exporter-openwebui:v1.1.0
     ports:
       - "9091:9090"
     environment:
