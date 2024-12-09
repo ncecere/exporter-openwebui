@@ -65,7 +65,7 @@ class SystemMetricsCollector:
                 for group_id, group_name, owner_id, owner_name, user_ids in cur.fetchall():
                     if user_ids:
                         try:
-                            users = json.loads(user_ids)
+                            users = user_ids
                             self.users_in_groups.labels(
                                 group_id=group_id,
                                 group_name=group_name or 'unnamed',
