@@ -5,6 +5,40 @@ All notable changes to the OpenWebUI Prometheus Exporter will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2024-12-13
+
+### Added
+- User email labels to all user-related metrics:
+  - openwebui_chats_by_user
+  - openwebui_documents_by_user
+  - openwebui_files_by_user
+  - openwebui_knowledge_bases_by_user
+  - openwebui_memories_by_user
+  - openwebui_models_by_user
+  - openwebui_tools_by_user
+  - openwebui_functions_by_user
+  - openwebui_users_in_groups
+  - openwebui_feedback_by_type
+  - openwebui_user_last_active_seconds
+
+### Changed
+- Enhanced Dockerfile with multi-stage builds:
+  - Added builder stage for dependencies
+  - Added development stage with testing tools
+  - Improved production stage
+- Updated docker-compose.yml:
+  - Removed hardcoded secrets
+  - Added environment variable substitution
+  - Added build target configuration
+- Improved database connection handling:
+  - Enhanced connection pool management
+  - Better cursor lifecycle handling
+  - Added debug logging for troubleshooting
+- Updated GitHub Actions workflow:
+  - Added support for multi-stage builds
+  - Enhanced caching strategy
+  - Added build arguments support
+
 ## [1.1.0] - 2024-12-07
 
 ### Changed

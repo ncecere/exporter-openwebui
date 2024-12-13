@@ -6,15 +6,15 @@ logger = logging.getLogger(__name__)
 class ModelMetricsCollector:
     """Collector for AI model, tool, and function related metrics"""
 
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, db_pool):
+        self.db_pool = db_pool
 
         # Model metrics
         self.total_models = Gauge('openwebui_models_total', 'Total number of models')
         self.active_models = Gauge('openwebui_models_active', 'Number of active models')
         self.models_by_user = Gauge('openwebui_models_by_user',
                                  'Number of models per user',
-                                 ['user_id', 'user_name'])
+                                 ['user_id', 'user_name', 'user_email'])
         self.models_by_base = Gauge('openwebui_models_by_base',
                                  'Number of models by base model',
                                  ['base_model_id', 'model_name'])
@@ -23,7 +23,7 @@ class ModelMetricsCollector:
         self.total_tools = Gauge('openwebui_tools_total', 'Total number of tools')
         self.tools_by_user = Gauge('openwebui_tools_by_user',
                                 'Number of tools per user',
-                                ['user_id', 'user_name', 'tool_name'])
+                                ['user_id', 'user_name', 'user_email', 'tool_name'])
 
         # Function metrics
         self.total_functions = Gauge('openwebui_functions_total', 'Total number of functions')
@@ -36,7 +36,7 @@ class ModelMetricsCollector:
                                     ['type', 'function_name'])
         self.functions_by_user = Gauge('openwebui_functions_by_user',
                                     'Number of functions per user',
-                                    ['user_id', 'user_name', 'function_name'])
+                                    ['user_id', 'user_name', 'user_email', 'function_name'])
 
         # Start collecting metrics
         self.collect_metrics()
@@ -44,7 +44,7 @@ class ModelMetricsCollector:
     def collect_metrics(self):
         """Collect all model-related metrics"""
         try:
-            with self.db.cursor() as cur:
+            with self.db_pool.get_connection() as cur:
                 # Model metrics
                 cur.execute("SELECT COUNT(*) FROM public.model")
                 self.total_models.set(cur.fetchone()[0])
@@ -52,18 +52,23 @@ class ModelMetricsCollector:
                 cur.execute("SELECT COUNT(*) FROM public.model WHERE is_active = true")
                 self.active_models.set(cur.fetchone()[0])
 
-                # Models by user with user names
-                cur.execute("""
-                    SELECT m.user_id, u.name, COUNT(*)
+                # Debug: Models by user with user names and emails
+                debug_query = """
+                    SELECT m.user_id, u.name, u.email, COUNT(*)
                     FROM public.model m
                     JOIN public.user u ON m.user_id = u.id
-                    GROUP BY m.user_id, u.name
-                """)
-                for user_id, user_name, count in cur.fetchall():
+                    GROUP BY m.user_id, u.name, u.email
+                """
+                cur.execute(debug_query)
+                results = cur.fetchall()
+                logger.info("Debug - Models by user:")
+                for row in results:
+                    logger.info(f"User: {row[0]}, Name: {row[1]}, Email: {row[2]}, Count: {row[3]}")
                     self.models_by_user.labels(
-                        user_id=user_id,
-                        user_name=user_name
-                    ).set(count)
+                        user_id=row[0],
+                        user_name=row[1],
+                        user_email=row[2]
+                    ).set(row[3])
 
                 # Models by base model with names
                 cur.execute("""
@@ -78,22 +83,24 @@ class ModelMetricsCollector:
                         model_name=model_name
                     ).set(count)
 
-                # Tool metrics with names
-                cur.execute("SELECT COUNT(*) FROM public.tool")
-                self.total_tools.set(cur.fetchone()[0])
-
-                cur.execute("""
-                    SELECT t.user_id, u.name as user_name, t.name as tool_name, COUNT(*)
+                # Debug: Tool metrics with names and emails
+                debug_query = """
+                    SELECT t.user_id, u.name, u.email, t.name, COUNT(*)
                     FROM public.tool t
                     JOIN public.user u ON t.user_id = u.id
-                    GROUP BY t.user_id, u.name, t.name
-                """)
-                for user_id, user_name, tool_name, count in cur.fetchall():
+                    GROUP BY t.user_id, u.name, u.email, t.name
+                """
+                cur.execute(debug_query)
+                results = cur.fetchall()
+                logger.info("Debug - Tools by user:")
+                for row in results:
+                    logger.info(f"User: {row[0]}, Name: {row[1]}, Email: {row[2]}, Tool: {row[3]}, Count: {row[4]}")
                     self.tools_by_user.labels(
-                        user_id=user_id,
-                        user_name=user_name,
-                        tool_name=tool_name
-                    ).set(count)
+                        user_id=row[0],
+                        user_name=row[1],
+                        user_email=row[2],
+                        tool_name=row[3]
+                    ).set(row[4])
 
                 # Function metrics
                 cur.execute("SELECT COUNT(*) FROM public.function")
@@ -117,19 +124,24 @@ class ModelMetricsCollector:
                         function_name=function_name
                     ).set(count)
 
-                # Functions by user with names
-                cur.execute("""
-                    SELECT f.user_id, u.name as user_name, f.name as function_name, COUNT(*)
+                # Debug: Functions by user with names and emails
+                debug_query = """
+                    SELECT f.user_id, u.name, u.email, f.name, COUNT(*)
                     FROM public.function f
                     JOIN public.user u ON f.user_id = u.id
-                    GROUP BY f.user_id, u.name, f.name
-                """)
-                for user_id, user_name, function_name, count in cur.fetchall():
+                    GROUP BY f.user_id, u.name, u.email, f.name
+                """
+                cur.execute(debug_query)
+                results = cur.fetchall()
+                logger.info("Debug - Functions by user:")
+                for row in results:
+                    logger.info(f"User: {row[0]}, Name: {row[1]}, Email: {row[2]}, Function: {row[3]}, Count: {row[4]}")
                     self.functions_by_user.labels(
-                        user_id=user_id,
-                        user_name=user_name,
-                        function_name=function_name
-                    ).set(count)
+                        user_id=row[0],
+                        user_name=row[1],
+                        user_email=row[2],
+                        function_name=row[3]
+                    ).set(row[4])
 
         except Exception as e:
             logger.error(f"Error collecting model metrics: {e}")
