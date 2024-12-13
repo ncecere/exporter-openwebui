@@ -1,19 +1,40 @@
+# OpenWebUI Exporter Docker Compose Configuration
+#
+# Build Configuration:
+# - Use `docker-compose build` to build the image locally
+# - Use `docker-compose up -d` to run in detached mode
+# - Use `BUILD_TARGET=development docker-compose up` for development build
+#
+# Available build targets:
+# - builder: Base build stage with all dependencies
+# - production: Production-ready image (default)
+# - development: Development image with testing tools
+
 services:
   exporter:
-    image: nicholascecere/exporter-openwebui:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-production}
+    image: nicholascecere/exporter-openwebui:${TAG:-latest}
     ports:
       - "9091:9090"
     environment:
-      - OPENWEBUI_DB_NAME=openwebui
-      - OPENWEBUI_DB_USER=openwebui
-      - OPENWEBUI_DB_PASSWORD=your_password_here
-      - OPENWEBUI_DB_HOST=localhost
-      - OPENWEBUI_DB_PORT=5432
-      - DB_MIN_CONNECTIONS=5
-      - DB_MAX_CONNECTIONS=20
-      - METRICS_UPDATE_INTERVAL=1m
-      - METRICS_REQUEST_WINDOW=24h
-      - METRICS_ERROR_WINDOW=1h
+      # Database configuration
+      - OPENWEBUI_DB_NAME=${OPENWEBUI_DB_NAME:-openwebui}
+      - OPENWEBUI_DB_USER=${OPENWEBUI_DB_USER:-openwebui}
+      - OPENWEBUI_DB_PASSWORD=${OPENWEBUI_DB_PASSWORD}
+      - OPENWEBUI_DB_HOST=${OPENWEBUI_DB_HOST:-localhost}
+      - OPENWEBUI_DB_PORT=${OPENWEBUI_DB_PORT:-5432}
+
+      # Connection pool settings
+      - DB_MIN_CONNECTIONS=${DB_MIN_CONNECTIONS:-5}
+      - DB_MAX_CONNECTIONS=${DB_MAX_CONNECTIONS:-20}
+
+      # Metrics collection settings
+      - METRICS_UPDATE_INTERVAL=${METRICS_UPDATE_INTERVAL:-60s}
+      - METRICS_REQUEST_WINDOW=${METRICS_REQUEST_WINDOW:-24h}
+      - METRICS_ERROR_WINDOW=${METRICS_ERROR_WINDOW:-1h}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]

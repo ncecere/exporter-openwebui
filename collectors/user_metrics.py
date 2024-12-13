@@ -7,8 +7,8 @@ logger = logging.getLogger(__name__)
 class UserMetricsCollector:
     """Collector for user-related metrics"""
 
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, db_pool):
+        self.db_pool = db_pool
 
         # User counts
         self.total_users = Gauge('openwebui_users_total', 'Total number of registered users')
@@ -22,7 +22,7 @@ class UserMetricsCollector:
         # User activity
         self.user_last_active = Gauge('openwebui_user_last_active_seconds',
                                     'Timestamp of last user activity',
-                                    ['user_id', 'user_name'])
+                                    ['user_id', 'user_name', 'user_email'])
 
         # Start collecting metrics
         self.collect_metrics()
@@ -30,7 +30,7 @@ class UserMetricsCollector:
     def collect_metrics(self):
         """Collect all user-related metrics"""
         try:
-            with self.db.cursor() as cur:
+            with self.db_pool.get_connection() as cur:
                 # Total users
                 cur.execute("SELECT COUNT(*) FROM public.user")
                 self.total_users.set(cur.fetchone()[0])
@@ -58,12 +58,21 @@ class UserMetricsCollector:
                 cur.execute("SELECT COUNT(*) FROM public.user WHERE oauth_sub IS NOT NULL")
                 self.oauth_users.set(cur.fetchone()[0])
 
-                # Last active timestamps with user names
-                cur.execute("SELECT id, name, last_active_at FROM public.user")
-                for user_id, user_name, last_active in cur.fetchall():
+                # Debug: Last active timestamps with user names and emails
+                debug_query = """
+                    SELECT id, name, email, last_active_at
+                    FROM public.user
+                """
+                cur.execute(debug_query)
+                results = cur.fetchall()
+                logger.info("Debug - User activity:")
+                for row in results:
+                    user_id, user_name, user_email, last_active = row
+                    logger.info(f"User: {user_id}, Name: {user_name}, Email: {user_email}, Last Active: {last_active}")
                     self.user_last_active.labels(
                         user_id=user_id,
-                        user_name=user_name
+                        user_name=user_name,
+                        user_email=user_email
                     ).set(last_active)
 
         except Exception as e:

@@ -21,6 +21,11 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=OpenWebUI Exporter
+            org.opencontainers.image.description=Prometheus exporter for OpenWebUI metrics
+            org.opencontainers.image.version={{version}}
+            org.opencontainers.image.created={{date 'YYYY-MM-DDTHH:mm:ssZ'}}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -40,7 +45,16 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          target: production
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+          cache-from: |
+            type=gha
+            type=registry,ref=nicholascecere/exporter-openwebui:latest
+          cache-to: |
+            type=gha,mode=max
+            type=inline

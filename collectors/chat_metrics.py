@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 class ChatMetricsCollector:
     """Collector for chat-related metrics"""
 
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, db_pool):
+        self.db_pool = db_pool
 
         # Chat counts
         self.total_chats = Gauge('openwebui_chats_total', 'Total number of chats',
@@ -24,7 +24,7 @@ class ChatMetricsCollector:
         # Chat metrics by user
         self.chats_by_user = Gauge('openwebui_chats_by_user',
                                  'Number of chats per user',
-                                 ['user_id', 'user_name', 'model_name'])
+                                 ['user_id', 'user_name', 'user_email', 'model_name'])
 
         # Shared chats
         self.shared_chats = Gauge('openwebui_chats_shared', 'Number of shared chats')
@@ -41,7 +41,7 @@ class ChatMetricsCollector:
         self.folders_total = Gauge('openwebui_folders_total', 'Total number of chat folders')
         self.chats_in_folders = Gauge('openwebui_chats_in_folders',
                                    'Number of chats in folder',
-                                   ['folder_id', 'folder_name', 'user_id', 'user_name'])
+                                   ['folder_id', 'folder_name', 'user_id', 'user_name', 'user_email'])
 
         # Start collecting metrics
         self.collect_metrics()
@@ -49,7 +49,7 @@ class ChatMetricsCollector:
     def collect_metrics(self):
         """Collect all chat-related metrics"""
         try:
-            with self.db.cursor() as cur:
+            with self.db_pool.get_connection() as cur:
                 # Total chats by model
                 cur.execute("""
                     WITH chat_models AS (
@@ -129,33 +129,30 @@ class ChatMetricsCollector:
                 for model_name, count in cur.fetchall():
                     self.pinned_chats.labels(model_name=model_name).set(count)
 
-                # Chats by user and model with user names
-                cur.execute("""
-                    WITH chat_models AS (
-                        SELECT DISTINCT
-                            c.id,
-                            c.user_id,
-                            u.name as user_name,
-                            json_array_elements(c.chat->'messages')->>'model' as model_name
-                        FROM public.chat c
-                        JOIN public.user u ON c.user_id = u.id
-                        WHERE c.chat->'messages' IS NOT NULL
-                    )
-                    SELECT
-                        user_id,
-                        user_name,
-                        model_name,
-                        COUNT(DISTINCT id)
-                    FROM chat_models
-                    WHERE model_name IS NOT NULL
-                    GROUP BY user_id, user_name, model_name
-                """)
-                for user_id, user_name, model_name, count in cur.fetchall():
+                # Debug: Print the SQL query and results
+                debug_query = """
+                    SELECT DISTINCT
+                        c.user_id,
+                        u.name,
+                        u.email,
+                        json_array_elements(c.chat->'messages')->>'model' as model_name,
+                        COUNT(DISTINCT c.id) as chat_count
+                    FROM public.chat c
+                    JOIN public.user u ON c.user_id = u.id
+                    WHERE c.chat->'messages' IS NOT NULL
+                    GROUP BY c.user_id, u.name, u.email, model_name
+                """
+                cur.execute(debug_query)
+                results = cur.fetchall()
+                logger.info("Debug - Query results:")
+                for row in results:
+                    logger.info(f"User: {row[0]}, Name: {row[1]}, Email: {row[2]}, Model: {row[3]}, Count: {row[4]}")
                     self.chats_by_user.labels(
-                        user_id=user_id,
-                        user_name=user_name,
-                        model_name=model_name
-                    ).set(count)
+                        user_id=row[0],
+                        user_name=row[1],
+                        user_email=row[2],
+                        model_name=row[3]
+                    ).set(row[4])
 
                 # Shared chats
                 cur.execute("SELECT COUNT(*) FROM public.chat WHERE share_id IS NOT NULL")
@@ -172,25 +169,27 @@ class ChatMetricsCollector:
                 cur.execute("SELECT COUNT(*) FROM public.folder")
                 self.folders_total.set(cur.fetchone()[0])
 
-                # Chats in folders with folder and user names
+                # Chats in folders with folder, user names and emails
                 cur.execute("""
                     SELECT
                         f.id as folder_id,
                         f.name as folder_name,
                         f.user_id,
                         u.name as user_name,
+                        u.email as user_email,
                         COUNT(c.id) as chat_count
                     FROM public.folder f
                     JOIN public.user u ON f.user_id = u.id
                     LEFT JOIN public.chat c ON c.folder_id = f.id
-                    GROUP BY f.id, f.name, f.user_id, u.name
+                    GROUP BY f.id, f.name, f.user_id, u.name, u.email
                 """)
-                for folder_id, folder_name, user_id, user_name, count in cur.fetchall():
+                for folder_id, folder_name, user_id, user_name, user_email, count in cur.fetchall():
                     self.chats_in_folders.labels(
                         folder_id=folder_id,
                         folder_name=folder_name,
                         user_id=user_id,
-                        user_name=user_name
+                        user_name=user_name,
+                        user_email=user_email
                     ).set(count)
 
                 # Message count by model

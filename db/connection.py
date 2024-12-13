@@ -36,14 +36,18 @@ class DatabasePool:
 
     def get_connection(self):
         """Get a connection from the pool"""
+        return DatabaseConnection(self)
+
+    def _get_raw_connection(self):
+        """Internal method to get a raw connection from the pool"""
         try:
             return self.pool.getconn()
         except Exception as e:
             logger.error(f"Error getting connection from pool: {e}")
             raise
 
-    def return_connection(self, conn):
-        """Return a connection to the pool"""
+    def _return_connection(self, conn):
+        """Internal method to return a connection to the pool"""
         try:
             self.pool.putconn(conn)
         except Exception as e:
@@ -61,25 +65,27 @@ class DatabasePool:
 
 class DatabaseConnection:
     """Context manager for database connections"""
-    
-    def __init__(self):
-        self.db_pool = DatabasePool()
+
+    def __init__(self, pool):
+        self.pool = pool
         self.conn = None
+        self._cursor = None
 
     def __enter__(self):
-        self.conn = self.db_pool.get_connection()
-        return self.conn
+        self.conn = self.pool._get_raw_connection()
+        self._cursor = self.conn.cursor()
+        return self._cursor
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.conn:
+        if self._cursor is not None:
+            self._cursor.close()
+        if self.conn is not None:
             if exc_type is not None:
-                # If an error occurred, rollback
                 self.conn.rollback()
             else:
-                # If no error, commit
                 self.conn.commit()
-            self.db_pool.return_connection(self.conn)
+            self.pool._return_connection(self.conn)
 
-def get_db_connection():
-    """Get a database connection from the pool"""
-    return DatabaseConnection()
+def get_db_pool():
+    """Get the database connection pool singleton"""
+    return DatabasePool()
