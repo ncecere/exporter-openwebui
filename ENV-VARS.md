@@ -10,19 +10,19 @@ This document lists all environment variables supported by the OpenWebUI Prometh
 - **Example**: `METRICS_PORT=9090`
 
 ### METRICS_UPDATE_INTERVAL
-- **Description**: How frequently metrics are updated. Supports 'm' (minutes) and 'h' (hours) suffixes
+- **Description**: How frequently metrics are updated. Supports 's' (seconds), 'm' (minutes), 'h' (hours), and 'd' (days) suffixes
 - **Default**: `15m`
-- **Example**: `METRICS_UPDATE_INTERVAL=5m`
+- **Example**: `METRICS_UPDATE_INTERVAL=5m` or `METRICS_UPDATE_INTERVAL=60s`
 
 ### METRICS_REQUEST_WINDOW
-- **Description**: Time window for request/activity metrics. Limits how far back SQL queries will look for user activity data. Supports 'm' (minutes) and 'h' (hours) suffixes
+- **Description**: Time window for request/activity metrics. Limits how far back SQL queries will look for user activity data. Supports 's' (seconds), 'm' (minutes), 'h' (hours), and 'd' (days) suffixes
 - **Default**: `24h`
-- **Example**: `METRICS_REQUEST_WINDOW=12h`
+- **Example**: `METRICS_REQUEST_WINDOW=12h` or `METRICS_REQUEST_WINDOW=86400s`
 
 ### METRICS_ERROR_WINDOW
-- **Description**: Time window for error metrics. Limits how far back SQL queries will look for error data. Supports 'm' (minutes) and 'h' (hours) suffixes
+- **Description**: Time window for error metrics. Limits how far back SQL queries will look for error data. Supports 's' (seconds), 'm' (minutes), 'h' (hours), and 'd' (days) suffixes
 - **Default**: `1h`
-- **Example**: `METRICS_ERROR_WINDOW=30m`
+- **Example**: `METRICS_ERROR_WINDOW=30m` or `METRICS_ERROR_WINDOW=3600s`
 
 ## Database Connection
 

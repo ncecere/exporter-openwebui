@@ -39,6 +39,7 @@ logs/
 
 # Docker
 .docker/
+docker-compose.yml
 
 # Operating System
 .DS_Store

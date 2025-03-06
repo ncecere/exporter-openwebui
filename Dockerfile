@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.11-slim as builder
+FROM python:3.12 as builder
 
 # Set working directory
 WORKDIR /app
@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Production stage
-FROM python:3.11-slim as production
+FROM python:3.12 as production
 
 # Set working directory
 WORKDIR /app

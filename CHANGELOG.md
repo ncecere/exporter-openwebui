@@ -5,6 +5,15 @@ All notable changes to the OpenWebUI Prometheus Exporter will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-03-06
+
+### Added
+- Support for seconds ('s') in time window formats for all time-related configuration
+- Updated documentation to reflect new time format options
+
+### Fixed
+- Fixed error when using seconds ('s') in METRICS_UPDATE_INTERVAL environment variable
+
 ## [1.2.0] - 2024-12-13
 
 ### Added
@@ -91,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - System configuration and health
 - Database connection pooling with configurable limits
 - Time-windowed queries to prevent database overload
-- Flexible time window specification (hours, minutes)
+- Flexible time window specification (seconds, minutes, hours, days)
 - Docker support with multi-stage builds
 - Docker Compose configuration for easy deployment
 - Comprehensive documentation:

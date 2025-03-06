@@ -8,38 +8,41 @@ def parse_time_window(window_str: str) -> timedelta:
     - 'd' for days (e.g., '30d')
     - 'h' for hours (e.g., '24h')
     - 'm' for minutes (e.g., '30m')
-    
+    - 's' for seconds (e.g., '60s')
+
     Args:
         window_str: String representing time window (e.g., '30d', '24h', '30m')
-        
+
     Returns:
         timedelta object representing the time window
-        
+
     Raises:
         ValueError: If the format is invalid
     """
     if not window_str:
         raise ValueError("Time window string cannot be empty")
-    
-    pattern = re.compile(r'^(\d+)([dhm])$')
+
+    pattern = re.compile(r'^(\d+)([dhms])$')
     match = pattern.match(window_str)
-    
+
     if not match:
         raise ValueError(
             "Invalid time window format. Use format: "
-            "NUMBER followed by 'd' (days), 'h' (hours), or 'm' (minutes). "
-            "Examples: '30d', '24h', '30m'"
+            "NUMBER followed by 'd' (days), 'h' (hours), 'm' (minutes), or 's' (seconds). "
+            "Examples: '30d', '24h', '30m', '60s'"
         )
-    
+
     value, unit = match.groups()
     value = int(value)
-    
+
     if unit == 'd':
         return timedelta(days=value)
     elif unit == 'h':
         return timedelta(hours=value)
     elif unit == 'm':
         return timedelta(minutes=value)
+    elif unit == 's':
+        return timedelta(seconds=value)
     else:
         raise ValueError(f"Invalid time unit: {unit}")
 

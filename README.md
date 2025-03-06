@@ -7,7 +7,7 @@ A Prometheus exporter for OpenWebUI that provides detailed metrics about users, 
 - Comprehensive metrics collection from OpenWebUI's PostgreSQL database
 - Connection pooling for efficient database access
 - Time-windowed queries to prevent database overload
-- Flexible time window specification (hours, minutes)
+- Flexible time window specification (seconds, minutes, hours, days)
 - Modular collector design for easy maintenance and extensions
 - Detailed monitoring of:
   - User activity and authentication
