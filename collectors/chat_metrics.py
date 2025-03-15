@@ -136,70 +136,39 @@ class ChatMetricsCollector:
                 cur.execute("SELECT COUNT(*) FROM public.chat WHERE share_id IS NOT NULL")
                 self.shared_chats.set(cur.fetchone()[0])
 
-                # Message count by model - handle both array and object formats
-                try:
-                    # First try counting messages by model in the messages array
-                    cur.execute("""
-                        WITH array_messages AS (
-                            SELECT
-                                json_array_elements(c.chat->'messages')->>'model' as model_name
-                            FROM public.chat c
-                            WHERE c.chat->'messages' IS NOT NULL AND jsonb_typeof(c.chat->'messages') = 'array'
-                        ),
-                        object_messages AS (
-                            SELECT
-                                value->>'model' as model_name
-                            FROM public.chat c,
-                            jsonb_each(c.chat->'history'->'messages') msg(key, value)
-                            WHERE c.chat->'history'->'messages' IS NOT NULL AND jsonb_typeof(c.chat->'history'->'messages') = 'object'
-                        ),
-                        combined_messages AS (
-                            SELECT model_name FROM array_messages
-                            UNION ALL
-                            SELECT model_name FROM object_messages
-                        )
+                # Message count by model - revert to original implementation
+                cur.execute("""
+                    WITH message_models AS (
                         SELECT
-                            model_name,
-                            COUNT(*) as message_count
-                        FROM combined_messages
-                        WHERE model_name IS NOT NULL
-                        GROUP BY model_name
-                    """)
-
-                    # Reset all existing metrics to avoid stale data
-                    for model_name, count in cur.fetchall():
-                        self.messages_by_model.labels(model_name=model_name).set(count)
-                        logger.info(f"Messages for model {model_name}: {count}")
-                except Exception as e:
-                    logger.error(f"Error counting messages by model: {e}")
-
-                # Total messages across all chats
-                # The messages can be stored in different formats depending on the chat structure
-                # Try both the array format and the object format
-                try:
-                    # First try counting messages in the messages array
-                    cur.execute("""
-                        SELECT COALESCE(SUM(jsonb_array_length(c.chat->'messages')), 0)
+                            json_array_elements(c.chat->'messages')->>'model' as model_name
                         FROM public.chat c
-                        WHERE c.chat->'messages' IS NOT NULL AND jsonb_typeof(c.chat->'messages') = 'array'
-                    """)
-                    array_count = cur.fetchone()[0] or 0
+                        WHERE c.chat->'messages' IS NOT NULL
+                    )
+                    SELECT
+                        model_name,
+                        COUNT(*) as message_count
+                    FROM message_models
+                    WHERE model_name IS NOT NULL
+                    GROUP BY model_name
+                """)
+                for model_name, count in cur.fetchall():
+                    self.messages_by_model.labels(model_name=model_name).set(count)
+                    logger.info(f"Messages for model {model_name}: {count}")
 
-                    # Then try counting messages in the history.messages object
-                    cur.execute("""
-                        SELECT COALESCE(SUM(jsonb_object_length(c.chat->'history'->'messages')), 0)
-                        FROM public.chat c
-                        WHERE c.chat->'history'->'messages' IS NOT NULL AND jsonb_typeof(c.chat->'history'->'messages') = 'object'
-                    """)
-                    object_count = cur.fetchone()[0] or 0
-
-                    # Set the total as the sum of both counts
-                    total_messages = array_count + object_count
-                    self.messages_total.set(total_messages)
-                    logger.info(f"Total messages count: {total_messages} (array: {array_count}, object: {object_count})")
-                except Exception as e:
-                    logger.error(f"Error counting total messages: {e}")
+                # Total messages across all chats - simplified approach
+                cur.execute("""
+                    SELECT COUNT(*)
+                    FROM public.chat c,
+                    jsonb_array_elements(c.chat->'messages') msg
+                    WHERE c.chat->'messages' IS NOT NULL
+                """)
+                result = cur.fetchone()
+                if result and result[0]:
+                    self.messages_total.set(result[0])
+                    logger.info(f"Total messages count: {result[0]}")
+                else:
                     self.messages_total.set(0)
+                    logger.info("Total messages count: 0")
 
         except Exception as e:
             logger.error(f"Error collecting chat metrics: {e}")
