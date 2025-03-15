@@ -74,10 +74,9 @@ Key configuration features:
 
 ### User Metrics
 - `openwebui_users_total`: Total number of registered users
-- `openwebui_users_active`: Number of active users (within request window)
+- `openwebui_users_active`: Number of active users (within 24 hours)
+- `openwebui_active_users`: Number of users active in the last 30 minutes
 - `openwebui_users_by_role`: Number of users by role
-- `openwebui_auth_active`: Number of active auth entries
-- `openwebui_oauth_users`: Number of users using OAuth
 - `openwebui_user_last_active_seconds`: Timestamp of last user activity
 
 ### Chat Metrics
@@ -89,33 +88,25 @@ Key configuration features:
 - `openwebui_chats_shared`: Number of shared chats
 - `openwebui_chat_messages_total{model_name="..."}`: Total number of chat messages by model
 - `openwebui_chat_age_seconds`: Age distribution of chats
-- `openwebui_folders_total`: Total number of chat folders
-- `openwebui_chats_in_folders`: Number of chats organized in folders
 
 ### Document Metrics
 - `openwebui_documents_total`: Total number of documents
-- `openwebui_documents_by_collection`: Number of documents by collection
-- `openwebui_documents_by_user`: Number of documents per user
-- `openwebui_files_total{knowledge_base_id="...",knowledge_base_name="..."}`: Total number of files by knowledge base
+- `openwebui_files_total`: Total number of files
 - `openwebui_files_by_user`: Number of files per user
 - `openwebui_knowledge_bases_total`: Total number of knowledge bases
-- `openwebui_knowledge_bases_by_user`: Number of knowledge bases per user
-- `openwebui_memories_total`: Total number of memories
-- `openwebui_memories_by_user`: Number of memories per user
+- `openwebui_prompts_total`: Total number of prompts
 - `openwebui_document_age_seconds`: Age distribution of documents
 
 ### Model Metrics
-- `openwebui_models_total`: Total number of models
+- `openwebui_models_total`: Total number of base models (where base_model_id IS NULL)
+- `openwebui_assistants_total`: Total number of assistants (where base_model_id IS NOT NULL)
 - `openwebui_models_active`: Number of active models
-- `openwebui_models_by_user`: Number of models per user
-- `openwebui_models_by_base`: Number of models by base model
+- `openwebui_model_unique_users`: Number of unique users that have used a model
 - `openwebui_tools_total`: Total number of tools
 - `openwebui_tools_by_user`: Number of tools per user
 - `openwebui_functions_total`: Total number of functions
 - `openwebui_functions_active`: Number of active functions
 - `openwebui_functions_global`: Number of global functions
-- `openwebui_functions_by_type`: Number of functions by type
-- `openwebui_functions_by_user`: Number of functions per user
 
 ### System Metrics
 - `openwebui_config_version`: Current configuration version
@@ -123,7 +114,6 @@ Key configuration features:
 - `openwebui_groups_total`: Total number of groups
 - `openwebui_users_in_groups`: Number of users in groups
 - `openwebui_feedback_total`: Total number of feedback entries
-- `openwebui_feedback_by_type`: Number of feedback entries by type
 
 ## Prometheus Configuration
 

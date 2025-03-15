@@ -23,9 +23,6 @@ class SystemMetricsCollector:
 
         # Feedback metrics
         self.total_feedback = Gauge('openwebui_feedback_total', 'Total number of feedback entries')
-        self.feedback_by_type = Gauge('openwebui_feedback_by_type',
-                                   'Number of feedback entries by type',
-                                   ['type', 'user_id', 'user_name', 'user_email'])
 
         # Start collecting metrics
         self.collect_metrics()
@@ -85,31 +82,6 @@ class SystemMetricsCollector:
                 # Debug: Feedback metrics with user names and emails
                 cur.execute("SELECT COUNT(*) FROM public.feedback")
                 self.total_feedback.set(cur.fetchone()[0])
-
-                debug_query = """
-                    SELECT
-                        f.type,
-                        f.user_id,
-                        u.name as user_name,
-                        u.email as user_email,
-                        COUNT(*)
-                    FROM public.feedback f
-                    LEFT JOIN public.user u ON f.user_id = u.id
-                    WHERE f.type IS NOT NULL
-                    GROUP BY f.type, f.user_id, u.name, u.email
-                """
-                cur.execute(debug_query)
-                results = cur.fetchall()
-                logger.info("Debug - Feedback by type and user:")
-                for row in results:
-                    feedback_type, user_id, user_name, user_email, count = row
-                    logger.info(f"Type: {feedback_type}, User: {user_id}, Name: {user_name}, Email: {user_email}, Count: {count}")
-                    self.feedback_by_type.labels(
-                        type=feedback_type,
-                        user_id=user_id or 'anonymous',
-                        user_name=user_name or 'anonymous',
-                        user_email=user_email or 'anonymous'
-                    ).set(count)
 
         except Exception as e:
             logger.error(f"Error collecting system metrics: {e}")

@@ -13,11 +13,8 @@ class UserMetricsCollector:
         # User counts
         self.total_users = Gauge('openwebui_users_total', 'Total number of registered users')
         self.active_users = Gauge('openwebui_users_active', 'Number of active users')
+        self.active_users_30min = Gauge('openwebui_active_users', 'Number of users active in the last 30 minutes')
         self.users_by_role = Gauge('openwebui_users_by_role', 'Number of users by role', ['role'])
-
-        # Authentication metrics
-        self.auth_active = Gauge('openwebui_auth_active', 'Number of active auth entries')
-        self.oauth_users = Gauge('openwebui_oauth_users', 'Number of users using OAuth')
 
         # User activity
         self.user_last_active = Gauge('openwebui_user_last_active_seconds',
@@ -42,6 +39,13 @@ class UserMetricsCollector:
                 """)
                 self.active_users.set(cur.fetchone()[0])
 
+                # Active users in last 30 minutes
+                cur.execute("""
+                    SELECT COUNT(*) FROM public.user
+                    WHERE last_active_at >= extract(epoch from now() - interval '30 minutes')
+                """)
+                self.active_users_30min.set(cur.fetchone()[0])
+
                 # Users by role
                 cur.execute("""
                     SELECT role, COUNT(*) FROM public.user
@@ -49,14 +53,6 @@ class UserMetricsCollector:
                 """)
                 for role, count in cur.fetchall():
                     self.users_by_role.labels(role=role).set(count)
-
-                # Active auth entries
-                cur.execute("SELECT COUNT(*) FROM public.auth WHERE active = true")
-                self.auth_active.set(cur.fetchone()[0])
-
-                # OAuth users
-                cur.execute("SELECT COUNT(*) FROM public.user WHERE oauth_sub IS NOT NULL")
-                self.oauth_users.set(cur.fetchone()[0])
 
                 # Debug: Last active timestamps with user names and emails
                 debug_query = """

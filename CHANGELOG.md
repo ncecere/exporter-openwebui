@@ -5,6 +5,31 @@ All notable changes to the OpenWebUI Prometheus Exporter will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-03-14
+
+### Added
+- New metric `openwebui_active_users` to track users active in the last 30 minutes
+- New metric `openwebui_prompts_total` to count the total number of prompts
+- New metric `openwebui_assistants_total` to count models where base_model_id is NOT NULL
+
+### Changed
+- Modified `openwebui_models_total` to only count base models (where base_model_id IS NULL)
+- Fixed `openwebui_files_total` metric to properly count all files without labels
+
+### Removed
+- Removed the following metrics:
+  - openwebui_auth_active
+  - openwebui_oauth_users
+  - openwebui_folders_total
+  - openwebui_chats_in_folders
+  - openwebui_documents_by_collection
+  - openwebui_documents_by_user
+  - openwebui_knowledge_bases_by_user
+  - openwebui_memories_total
+  - openwebui_feedback_by_type
+  - openwebui_functions_by_type
+  - openwebui_functions_by_user
+
 ## [1.2.1] - 2025-03-06
 
 ### Added
