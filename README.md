@@ -87,6 +87,7 @@ Key configuration features:
 - `openwebui_chats_by_user{model_name="..."}`: Number of chats per user by model
 - `openwebui_chats_shared`: Number of shared chats
 - `openwebui_chat_messages_total{model_name="..."}`: Total number of chat messages by model
+- `openwebui_messages_total`: Total number of messages across all chats
 - `openwebui_chat_age_seconds`: Age distribution of chats
 
 ### Document Metrics

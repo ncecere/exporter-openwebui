@@ -33,6 +33,9 @@ class ChatMetricsCollector:
                                 'Total number of chat messages',
                                 ['model_name'])
 
+        # Total messages across all chats
+        self.messages_total = Gauge('openwebui_messages_total', 'Total number of messages across all chats')
+
         # Start collecting metrics
         self.collect_metrics()
 
@@ -133,7 +136,6 @@ class ChatMetricsCollector:
                 cur.execute("SELECT COUNT(*) FROM public.chat WHERE share_id IS NOT NULL")
                 self.shared_chats.set(cur.fetchone()[0])
 
-
                 # Message count by model
                 cur.execute("""
                     WITH chat_models AS (
@@ -152,6 +154,18 @@ class ChatMetricsCollector:
                 """)
                 for model_name, count in cur.fetchall():
                     self.chat_messages.labels(model_name=model_name).set(count)
+
+                # Total messages across all chats
+                cur.execute("""
+                    SELECT SUM(jsonb_array_length(c.chat->'messages'))
+                    FROM public.chat c
+                    WHERE c.chat->'messages' IS NOT NULL
+                """)
+                result = cur.fetchone()
+                if result and result[0]:
+                    self.messages_total.set(result[0])
+                else:
+                    self.messages_total.set(0)
 
         except Exception as e:
             logger.error(f"Error collecting chat metrics: {e}")

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New metric `openwebui_active_users` to track users active in the last 30 minutes
 - New metric `openwebui_prompts_total` to count the total number of prompts
 - New metric `openwebui_assistants_total` to count models where base_model_id is NOT NULL
+- New metric `openwebui_messages_total` to count the total number of messages across all chats
 
 ### Changed
 - Modified `openwebui_models_total` to only count base models (where base_model_id IS NULL)
