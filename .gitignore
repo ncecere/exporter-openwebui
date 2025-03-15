@@ -44,3 +44,4 @@ docker-compose.yml
 # Operating System
 .DS_Store
 Thumbs.db
+.env
