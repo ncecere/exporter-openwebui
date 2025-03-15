@@ -86,7 +86,7 @@ Key configuration features:
 - `openwebui_chats_pinned{model_name="..."}`: Number of pinned chats by model
 - `openwebui_chats_by_user{model_name="..."}`: Number of chats per user by model
 - `openwebui_chats_shared`: Number of shared chats
-- `openwebui_chat_messages_total{model_name="..."}`: Total number of chat messages by model
+- `openwebui_messages_by_model{model_name="..."}`: Number of messages by model
 - `openwebui_messages_total`: Total number of messages across all chats
 - `openwebui_chat_age_seconds`: Age distribution of chats
 
@@ -96,7 +96,6 @@ Key configuration features:
 - `openwebui_files_by_user`: Number of files per user
 - `openwebui_knowledge_bases_total`: Total number of knowledge bases
 - `openwebui_prompts_total`: Total number of prompts
-- `openwebui_document_age_seconds`: Age distribution of documents
 
 ### Model Metrics
 - `openwebui_models_total`: Total number of base models (where base_model_id IS NULL)

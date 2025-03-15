@@ -29,8 +29,8 @@ class ChatMetricsCollector:
         self.shared_chats = Gauge('openwebui_chats_shared', 'Number of shared chats')
 
         # Chat activity
-        self.chat_messages = Gauge('openwebui_chat_messages_total',
-                                'Total number of chat messages',
+        self.messages_by_model = Gauge('openwebui_messages_by_model',
+                                'Number of messages by model',
                                 ['model_name'])
 
         # Total messages across all chats
@@ -138,22 +138,21 @@ class ChatMetricsCollector:
 
                 # Message count by model
                 cur.execute("""
-                    WITH chat_models AS (
-                        SELECT DISTINCT
-                            c.id,
+                    WITH message_models AS (
+                        SELECT
                             json_array_elements(c.chat->'messages')->>'model' as model_name
                         FROM public.chat c
                         WHERE c.chat->'messages' IS NOT NULL
                     )
                     SELECT
                         model_name,
-                        COUNT(DISTINCT id)
-                    FROM chat_models
+                        COUNT(*) as message_count
+                    FROM message_models
                     WHERE model_name IS NOT NULL
                     GROUP BY model_name
                 """)
                 for model_name, count in cur.fetchall():
-                    self.chat_messages.labels(model_name=model_name).set(count)
+                    self.messages_by_model.labels(model_name=model_name).set(count)
 
                 # Total messages across all chats
                 cur.execute("""
