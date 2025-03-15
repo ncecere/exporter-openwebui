@@ -155,7 +155,11 @@ class ChatMetricsCollector:
                     self.messages_by_model.labels(model_name=model_name).set(count)
                     logger.info(f"Messages for model {model_name}: {count}")
 
-                # Total messages across all chats - use the same approach as messages_by_model
+                # Total messages across all chats - calculate from the sum of messages by model
+                # This ensures consistency between the two metrics
+                total_messages = 0
+
+                # First, get the count of messages with models
                 cur.execute("""
                     WITH message_models AS (
                         SELECT
@@ -164,16 +168,22 @@ class ChatMetricsCollector:
                         WHERE c.chat->'messages' IS NOT NULL
                     )
                     SELECT
-                        COUNT(*) as message_count
-                    FROM message_models
+                        SUM(message_count) as total_count
+                    FROM (
+                        SELECT
+                            model_name,
+                            COUNT(*) as message_count
+                        FROM message_models
+                        GROUP BY model_name
+                    ) as model_counts
                 """)
                 result = cur.fetchone()
                 if result and result[0]:
-                    self.messages_total.set(result[0])
-                    logger.info(f"Total messages count: {result[0]}")
-                else:
-                    self.messages_total.set(0)
-                    logger.info("Total messages count: 0")
+                    total_messages = result[0]
+
+                # Set the metric
+                self.messages_total.set(total_messages)
+                logger.info(f"Total messages count: {total_messages}")
 
         except Exception as e:
             logger.error(f"Error collecting chat metrics: {e}")
