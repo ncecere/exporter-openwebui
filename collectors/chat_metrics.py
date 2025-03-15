@@ -52,7 +52,7 @@ class ChatMetricsCollector:
                     WITH chat_models AS (
                         SELECT DISTINCT
                             c.id,
-                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
                         FROM public.chat c
                         WHERE c.chat->'messages' IS NOT NULL
                     )
@@ -72,7 +72,7 @@ class ChatMetricsCollector:
                     WITH chat_models AS (
                         SELECT DISTINCT
                             c.id,
-                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
                         FROM public.chat c
                         WHERE c.chat->'messages' IS NOT NULL
                         AND c.archived = true
@@ -92,7 +92,7 @@ class ChatMetricsCollector:
                     WITH chat_models AS (
                         SELECT DISTINCT
                             c.id,
-                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
                         FROM public.chat c
                         WHERE c.chat->'messages' IS NOT NULL
                         AND c.pinned = true
@@ -113,7 +113,7 @@ class ChatMetricsCollector:
                         c.user_id,
                         u.name,
                         u.email,
-                        json_array_elements(c.chat->'messages')->>'model' as model_name,
+                        json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name,
                         COUNT(DISTINCT c.id) as chat_count
                     FROM public.chat c
                     JOIN public.user u ON c.user_id = u.id
@@ -136,11 +136,11 @@ class ChatMetricsCollector:
                 cur.execute("SELECT COUNT(*) FROM public.chat WHERE share_id IS NOT NULL")
                 self.shared_chats.set(cur.fetchone()[0])
 
-                # Message count by model - revert to original implementation
+                # Message count by model
                 cur.execute("""
                     WITH message_models AS (
                         SELECT
-                            json_array_elements(c.chat->'messages')->>'model' as model_name
+                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
                         FROM public.chat c
                         WHERE c.chat->'messages' IS NOT NULL
                     )
@@ -155,12 +155,17 @@ class ChatMetricsCollector:
                     self.messages_by_model.labels(model_name=model_name).set(count)
                     logger.info(f"Messages for model {model_name}: {count}")
 
-                # Total messages across all chats - simplified approach
+                # Total messages across all chats - use the same approach as messages_by_model
                 cur.execute("""
-                    SELECT COUNT(*)
-                    FROM public.chat c,
-                    jsonb_array_elements(c.chat->'messages') msg
-                    WHERE c.chat->'messages' IS NOT NULL
+                    WITH message_models AS (
+                        SELECT
+                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
+                        FROM public.chat c
+                        WHERE c.chat->'messages' IS NOT NULL
+                    )
+                    SELECT
+                        COUNT(*) as message_count
+                    FROM message_models
                 """)
                 result = cur.fetchone()
                 if result and result[0]:
