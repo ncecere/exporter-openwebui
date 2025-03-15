@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed `openwebui_messages_total` metric to properly count all messages
+- Ensured consistency between total message count and sum of messages by model
 - Fixed JSON type casting in SQL queries by adding explicit JSONB casts
 - Added detailed logging for message counting to help with troubleshooting
 
