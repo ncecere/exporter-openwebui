@@ -6,7 +6,14 @@ METRICS_PORT = int(os.getenv('METRICS_PORT', '9090'))
 
 # Time Windows for Metrics
 # These windows limit the time range for SQL queries to prevent database overload
-METRICS_REQUEST_WINDOW = parse_time_window(os.getenv('METRICS_REQUEST_WINDOW', '24h'))
+_lookback_days = os.getenv('METRICS_LOOKBACK_DAYS')
+if _lookback_days is not None and _lookback_days.strip() != "":
+    try:
+        METRICS_REQUEST_WINDOW = parse_time_window(f"{int(_lookback_days)}d")
+    except ValueError:
+        METRICS_REQUEST_WINDOW = parse_time_window(os.getenv('METRICS_REQUEST_WINDOW', '24h'))
+else:
+    METRICS_REQUEST_WINDOW = parse_time_window(os.getenv('METRICS_REQUEST_WINDOW', '24h'))
 METRICS_ERROR_WINDOW = parse_time_window(os.getenv('METRICS_ERROR_WINDOW', '1h'))
 
 # Database Configuration

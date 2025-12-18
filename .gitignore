@@ -25,6 +25,8 @@ venv/
 ENV/
 env/
 .env
+.env.*
+!.env.example
 
 # IDE
 .idea/
@@ -37,6 +39,9 @@ env/
 *.log
 logs/
 
+# Local scratch files
+temp.txt
+
 # Docker
 .docker/
 docker-compose.yml
@@ -44,4 +49,3 @@ docker-compose.yml
 # Operating System
 .DS_Store
 Thumbs.db
-.env

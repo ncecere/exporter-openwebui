@@ -1,6 +1,5 @@
-from prometheus_client import Gauge, Counter, Histogram
+from prometheus_client import Gauge
 import logging
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +14,6 @@ class DocumentMetricsCollector:
 
         # File metrics
         self.total_files = Gauge('openwebui_files_total', 'Total number of files')
-        self.files_by_user = Gauge('openwebui_files_by_user',
-                                'Number of files per user',
-                                ['user_id', 'user_name', 'user_email'])
-
         # Knowledge base metrics
         self.total_knowledge_bases = Gauge('openwebui_knowledge_bases_total',
                                         'Total number of knowledge bases')
@@ -41,25 +36,7 @@ class DocumentMetricsCollector:
                 cur.execute("SELECT COUNT(*) FROM public.file")
                 self.total_files.set(cur.fetchone()[0])
 
-                # Files by user with user names and emails
-                debug_query = """
-                    SELECT f.user_id, u.name, u.email, COUNT(*)
-                    FROM public.file f
-                    JOIN public.user u ON f.user_id = u.id
-                    GROUP BY f.user_id, u.name, u.email
-                """
-                cur.execute(debug_query)
-                results = cur.fetchall()
-                logger.info("Debug - Files by user:")
-                for row in results:
-                    logger.info(f"User: {row[0]}, Name: {row[1]}, Email: {row[2]}, Count: {row[3]}")
-                    self.files_by_user.labels(
-                        user_id=row[0],
-                        user_name=row[1],
-                        user_email=row[2]
-                    ).set(row[3])
-
-                # Knowledge base metrics with names and emails
+                # Knowledge base metrics
                 cur.execute("SELECT COUNT(*) FROM public.knowledge")
                 self.total_knowledge_bases.set(cur.fetchone()[0])
 

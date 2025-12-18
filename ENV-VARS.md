@@ -15,9 +15,14 @@ This document lists all environment variables supported by the OpenWebUI Prometh
 - **Example**: `METRICS_UPDATE_INTERVAL=5m` or `METRICS_UPDATE_INTERVAL=60s`
 
 ### METRICS_REQUEST_WINDOW
-- **Description**: Time window for request/activity metrics. Limits how far back SQL queries will look for user activity data. Supports 's' (seconds), 'm' (minutes), 'h' (hours), and 'd' (days) suffixes
+- **Description**: Time window for scan-heavy metrics. Limits how far back chat-based aggregations will look when computing metrics like messages/models. Supports 's' (seconds), 'm' (minutes), 'h' (hours), and 'd' (days) suffixes
 - **Default**: `24h`
 - **Example**: `METRICS_REQUEST_WINDOW=12h` or `METRICS_REQUEST_WINDOW=86400s`
+
+### METRICS_LOOKBACK_DAYS
+- **Description**: Convenience override for `METRICS_REQUEST_WINDOW` expressed as whole days (e.g. `7` -> `7d`)
+- **Default**: unset
+- **Example**: `METRICS_LOOKBACK_DAYS=7`
 
 ### METRICS_ERROR_WINDOW
 - **Description**: Time window for error metrics. Limits how far back SQL queries will look for error data. Supports 's' (seconds), 'm' (minutes), 'h' (hours), and 'd' (days) suffixes
@@ -72,6 +77,7 @@ Here's a complete example configuration:
 export METRICS_PORT=9090
 export METRICS_UPDATE_INTERVAL=15m
 export METRICS_REQUEST_WINDOW=24h
+export METRICS_LOOKBACK_DAYS=1
 export METRICS_ERROR_WINDOW=1h
 
 # Database Connection

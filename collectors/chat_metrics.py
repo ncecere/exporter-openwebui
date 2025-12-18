@@ -1,40 +1,43 @@
-from prometheus_client import Gauge, Counter, Histogram
-from datetime import datetime
+from prometheus_client import Gauge
 import logging
 import json
+import gc
+import time
+from config import REQUEST_WINDOW_SECONDS
 
 logger = logging.getLogger(__name__)
 
 class ChatMetricsCollector:
     """Collector for chat-related metrics"""
 
+    BATCH_SIZE = 50
+
     def __init__(self, db_pool):
         self.db_pool = db_pool
 
         # Chat counts
         self.total_chats = Gauge('openwebui_chats_total', 'Total number of chats')
-        self.total_chats_by_model = Gauge('openwebui_chats_by_model', 'Number of chats by model',
-                               ['model_name'])
-        self.archived_chats = Gauge('openwebui_chats_archived', 'Number of archived chats',
+        self.total_chats_by_model = Gauge('openwebui_chats_by_model',
+                                          'Number of chats by model',
+                                          ['model_name'])
+        self.archived_chats = Gauge('openwebui_chats_archived',
+                                    'Number of archived chats',
+                                    ['model_name'])
+        self.pinned_chats = Gauge('openwebui_chats_pinned',
+                                  'Number of pinned chats',
                                   ['model_name'])
-        self.pinned_chats = Gauge('openwebui_chats_pinned', 'Number of pinned chats',
-                                ['model_name'])
-
-        # Chat metrics by user
-        self.chats_by_user = Gauge('openwebui_chats_by_user',
-                                 'Number of chats per user',
-                                 ['user_id', 'user_name', 'user_email', 'model_name'])
 
         # Shared chats
         self.shared_chats = Gauge('openwebui_chats_shared', 'Number of shared chats')
 
         # Chat activity
         self.messages_by_model = Gauge('openwebui_messages_by_model',
-                                'Number of messages by model',
-                                ['model_name'])
+                                       'Number of messages by model',
+                                       ['model_name'])
 
         # Total messages across all chats
-        self.messages_total = Gauge('openwebui_messages_total', 'Total number of messages across all chats')
+        self.messages_total = Gauge('openwebui_messages_total',
+                                    'Total number of messages across all chats')
 
         # Start collecting metrics
         self.collect_metrics()
@@ -42,148 +45,116 @@ class ChatMetricsCollector:
     def collect_metrics(self):
         """Collect all chat-related metrics"""
         try:
+            cutoff_epoch = int(time.time()) - int(REQUEST_WINDOW_SECONDS)
             with self.db_pool.get_connection() as cur:
                 # Total chats (all)
                 cur.execute("SELECT COUNT(*) FROM public.chat")
                 self.total_chats.set(cur.fetchone()[0])
 
-                # Total chats by model
-                cur.execute("""
-                    WITH chat_models AS (
-                        SELECT DISTINCT
-                            c.id,
-                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
-                        FROM public.chat c
-                        WHERE c.chat->'messages' IS NOT NULL
-                    )
-                    SELECT
-                        model_name,
-                        COUNT(DISTINCT id)
-                    FROM chat_models
-                    WHERE model_name IS NOT NULL
-                    GROUP BY model_name
-                """)
-                for model_name, count in cur.fetchall():
-                    self.total_chats_by_model.labels(model_name=model_name).set(count)
+                # Model-level chat and message metrics (processed in Python to avoid encoding issues)
+                conn = cur.connection
+                stream_cur = conn.cursor(name='chat_metrics_stream')
+                try:
+                    stream_cur.itersize = self.BATCH_SIZE
+                    stream_cur.execute("""
+                        SELECT id, archived, pinned, chat
+                        FROM public.chat
+                        WHERE chat->'messages' IS NOT NULL
+                          AND updated_at >= %s
+                    """, (cutoff_epoch,))
+                    model_chat_counts = {}
+                    model_archived_counts = {}
+                    model_pinned_counts = {}
+                    model_message_counts = {}
+                    total_messages = 0
 
+                    processed_rows = 0
+                    while True:
+                        rows = stream_cur.fetchmany(self.BATCH_SIZE)
+                        if not rows:
+                            break
 
-                # Archived chats by model
-                cur.execute("""
-                    WITH chat_models AS (
-                        SELECT DISTINCT
-                            c.id,
-                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
-                        FROM public.chat c
-                        WHERE c.chat->'messages' IS NOT NULL
-                        AND c.archived = true
-                    )
-                    SELECT
-                        model_name,
-                        COUNT(DISTINCT id)
-                    FROM chat_models
-                    WHERE model_name IS NOT NULL
-                    GROUP BY model_name
-                """)
-                for model_name, count in cur.fetchall():
-                    self.archived_chats.labels(model_name=model_name).set(count)
+                        for chat_id, archived, pinned, chat_payload in rows:
+                            if chat_payload is None:
+                                continue
 
-                # Pinned chats by model
-                cur.execute("""
-                    WITH chat_models AS (
-                        SELECT DISTINCT
-                            c.id,
-                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
-                        FROM public.chat c
-                        WHERE c.chat->'messages' IS NOT NULL
-                        AND c.pinned = true
-                    )
-                    SELECT
-                        model_name,
-                        COUNT(DISTINCT id)
-                    FROM chat_models
-                    WHERE model_name IS NOT NULL
-                    GROUP BY model_name
-                """)
-                for model_name, count in cur.fetchall():
-                    self.pinned_chats.labels(model_name=model_name).set(count)
+                            if isinstance(chat_payload, dict):
+                                messages = chat_payload.get('messages') or []
+                            else:
+                                try:
+                                    messages = json.loads(chat_payload).get('messages', [])
+                                except (json.JSONDecodeError, AttributeError, TypeError):
+                                    continue
 
-                # Debug: Print the SQL query and results
-                debug_query = """
-                    SELECT DISTINCT
-                        c.user_id,
-                        u.name,
-                        u.email,
-                        json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name,
-                        COUNT(DISTINCT c.id) as chat_count
-                    FROM public.chat c
-                    JOIN public.user u ON c.user_id = u.id
-                    WHERE c.chat->'messages' IS NOT NULL
-                    GROUP BY c.user_id, u.name, u.email, model_name
-                """
-                cur.execute(debug_query)
-                results = cur.fetchall()
-                logger.info("Debug - Query results:")
-                for row in results:
-                    logger.info(f"User: {row[0]}, Name: {row[1]}, Email: {row[2]}, Model: {row[3]}, Count: {row[4]}")
-                    self.chats_by_user.labels(
-                        user_id=row[0],
-                        user_name=row[1],
-                        user_email=row[2],
-                        model_name=row[3]
-                    ).set(row[4])
+                            if not isinstance(messages, list):
+                                continue
+
+                            total_messages += len(messages)
+
+                            models_in_chat = set()
+                            for message in messages:
+                                if not isinstance(message, dict):
+                                    continue
+                                model_name = message.get('model')
+                                if not isinstance(model_name, str):
+                                    continue
+                                cleaned_model = model_name.replace('\x00', '').strip()
+                                if not cleaned_model:
+                                    continue
+
+                                models_in_chat.add(cleaned_model)
+                                model_message_counts[cleaned_model] = (
+                                    model_message_counts.get(cleaned_model, 0) + 1
+                                )
+
+                            if not models_in_chat:
+                                continue
+
+                            for model in models_in_chat:
+                                model_chat_counts[model] = model_chat_counts.get(model, 0) + 1
+                                if archived:
+                                    model_archived_counts[model] = model_archived_counts.get(model, 0) + 1
+                                if pinned:
+                                    model_pinned_counts[model] = model_pinned_counts.get(model, 0) + 1
+
+                            del messages
+
+                        processed_rows += len(rows)
+                        if processed_rows and processed_rows % 1000 == 0:
+                            logger.info("Processed %d chat rows for chat metrics", processed_rows)
+                            gc.collect()
+                finally:
+                    stream_cur.close()
+
+                # Clear existing label values to avoid stale metrics when models are removed
+                self.total_chats_by_model.clear()
+                self.archived_chats.clear()
+                self.pinned_chats.clear()
+                self.messages_by_model.clear()
+
+                for model, chat_count in model_chat_counts.items():
+                    self.total_chats_by_model.labels(model_name=model).set(chat_count)
+                    archived_count = model_archived_counts.get(model, 0)
+                    pinned_count = model_pinned_counts.get(model, 0)
+                    message_count = model_message_counts.get(model, 0)
+
+                    self.archived_chats.labels(model_name=model).set(archived_count)
+                    self.pinned_chats.labels(model_name=model).set(pinned_count)
+                    self.messages_by_model.labels(model_name=model).set(message_count)
+
+                logger.info(
+                    "Completed chat metrics aggregation: %d models across %d chats (total messages: %d)",
+                    len(model_chat_counts),
+                    processed_rows,
+                    total_messages,
+                )
 
                 # Shared chats
                 cur.execute("SELECT COUNT(*) FROM public.chat WHERE share_id IS NOT NULL")
                 self.shared_chats.set(cur.fetchone()[0])
 
-                # Message count by model
-                cur.execute("""
-                    WITH message_models AS (
-                        SELECT
-                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
-                        FROM public.chat c
-                        WHERE c.chat->'messages' IS NOT NULL
-                    )
-                    SELECT
-                        model_name,
-                        COUNT(*) as message_count
-                    FROM message_models
-                    WHERE model_name IS NOT NULL
-                    GROUP BY model_name
-                """)
-                for model_name, count in cur.fetchall():
-                    self.messages_by_model.labels(model_name=model_name).set(count)
-                    logger.info(f"Messages for model {model_name}: {count}")
-
-                # Total messages across all chats - calculate from the sum of messages by model
-                # This ensures consistency between the two metrics
-                total_messages = 0
-
-                # First, get the count of messages with models
-                cur.execute("""
-                    WITH message_models AS (
-                        SELECT
-                            json_array_elements(c.chat->'messages')::jsonb->>'model' as model_name
-                        FROM public.chat c
-                        WHERE c.chat->'messages' IS NOT NULL
-                    )
-                    SELECT
-                        SUM(message_count) as total_count
-                    FROM (
-                        SELECT
-                            model_name,
-                            COUNT(*) as message_count
-                        FROM message_models
-                        GROUP BY model_name
-                    ) as model_counts
-                """)
-                result = cur.fetchone()
-                if result and result[0]:
-                    total_messages = result[0]
-
-                # Set the metric
+                # Total messages across all chats (regardless of whether a message has a model)
                 self.messages_total.set(total_messages)
-                logger.info(f"Total messages count: {total_messages}")
 
         except Exception as e:
             logger.error(f"Error collecting chat metrics: {e}")

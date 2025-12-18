@@ -19,6 +19,8 @@ services:
     image: nicholascecere/exporter-openwebui:${TAG:-latest}
     ports:
       - "9091:9090"
+    env_file:
+      - .env
     environment:
       # Database configuration
       - OPENWEBUI_DB_NAME=${OPENWEBUI_DB_NAME:-openwebui}

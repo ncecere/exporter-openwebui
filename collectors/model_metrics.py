@@ -1,11 +1,16 @@
-from prometheus_client import Gauge, Counter
+from prometheus_client import Gauge
 import logging
+import json
+import gc
+import time
+from config import REQUEST_WINDOW_SECONDS
 
 logger = logging.getLogger(__name__)
 
 class ModelMetricsCollector:
     """Collector for AI model, tool, and function related metrics"""
 
+    BATCH_SIZE = 50
     def __init__(self, db_pool):
         self.db_pool = db_pool
 
@@ -19,9 +24,6 @@ class ModelMetricsCollector:
 
         # Tool metrics
         self.total_tools = Gauge('openwebui_tools_total', 'Total number of tools')
-        self.tools_by_user = Gauge('openwebui_tools_by_user',
-                                'Number of tools per user',
-                                ['user_id', 'user_name', 'user_email', 'tool_name'])
 
         # Function metrics
         self.total_functions = Gauge('openwebui_functions_total', 'Total number of functions')
@@ -36,6 +38,7 @@ class ModelMetricsCollector:
     def collect_metrics(self):
         """Collect all model-related metrics"""
         try:
+            cutoff_epoch = int(time.time()) - int(REQUEST_WINDOW_SECONDS)
             with self.db_pool.get_connection() as cur:
                 # Model metrics (base models where base_model_id is NULL)
                 cur.execute("SELECT COUNT(*) FROM public.model WHERE base_model_id IS NULL")
@@ -48,46 +51,81 @@ class ModelMetricsCollector:
                 cur.execute("SELECT COUNT(*) FROM public.model WHERE is_active = true")
                 self.active_models.set(cur.fetchone()[0])
 
-                # Unique users by model name (based on actual usage in chats)
-                cur.execute("""
-                    WITH chat_models AS (
-                        SELECT DISTINCT
-                            c.user_id,
-                            json_array_elements(c.chat->'messages')->>'model' as model_name
-                        FROM public.chat c
-                        WHERE c.chat->'messages' IS NOT NULL
+                # Unique users by model name (processed in Python to handle malformed entries)
+                conn = cur.connection
+                stream_cur = conn.cursor(name='model_metrics_stream')
+                model_users = {}
+                processed_rows = 0
+                try:
+                    stream_cur.itersize = self.BATCH_SIZE
+                    stream_cur.execute(
+                        """
+                        SELECT user_id, chat
+                        FROM public.chat
+                        WHERE chat->'messages' IS NOT NULL
+                          AND user_id IS NOT NULL
+                          AND updated_at >= %s
+                        """,
+                        (cutoff_epoch,),
                     )
-                    SELECT
-                        model_name,
-                        COUNT(DISTINCT user_id) as unique_users
-                    FROM chat_models
-                    WHERE model_name IS NOT NULL
-                    GROUP BY model_name
-                """)
-                for model_name, unique_users in cur.fetchall():
-                    self.unique_model_users.labels(
-                        model_name=model_name
-                    ).set(unique_users)
+                    while True:
+                        rows = stream_cur.fetchmany(self.BATCH_SIZE)
+                        if not rows:
+                            break
+
+                        for user_id, chat_payload in rows:
+                            if not user_id or chat_payload is None:
+                                continue
+
+                            if isinstance(chat_payload, dict):
+                                messages = chat_payload.get('messages') or []
+                            else:
+                                try:
+                                    messages = json.loads(chat_payload).get('messages', [])
+                                except (json.JSONDecodeError, AttributeError, TypeError):
+                                    continue
+
+                            if not isinstance(messages, list):
+                                continue
+
+                            for message in messages:
+                                if not isinstance(message, dict):
+                                    continue
+                                model_name = message.get('model')
+                                if not isinstance(model_name, str):
+                                    continue
+
+                                cleaned_model = model_name.replace('\x00', '').strip()
+                                if not cleaned_model:
+                                    continue
+
+                                users = model_users.setdefault(cleaned_model, set())
+                                users.add(user_id)
+
+                        processed_rows += len(rows)
+                        if processed_rows and processed_rows % 1000 == 0:
+                            logger.info(
+                                "Processed %d chat rows for unique model users",
+                                processed_rows,
+                            )
+                            gc.collect()
+                finally:
+                    stream_cur.close()
+
+                self.unique_model_users.clear()
+                for model_name, users in model_users.items():
+                    self.unique_model_users.labels(model_name=model_name).set(len(users))
+
+                logger.info(
+                    "Completed unique model user aggregation: %d models scanned from %d chats",
+                    len(model_users),
+                    processed_rows,
+                )
 
 
-                # Debug: Tool metrics with names and emails
-                debug_query = """
-                    SELECT t.user_id, u.name, u.email, t.name, COUNT(*)
-                    FROM public.tool t
-                    JOIN public.user u ON t.user_id = u.id
-                    GROUP BY t.user_id, u.name, u.email, t.name
-                """
-                cur.execute(debug_query)
-                results = cur.fetchall()
-                logger.info("Debug - Tools by user:")
-                for row in results:
-                    logger.info(f"User: {row[0]}, Name: {row[1]}, Email: {row[2]}, Tool: {row[3]}, Count: {row[4]}")
-                    self.tools_by_user.labels(
-                        user_id=row[0],
-                        user_name=row[1],
-                        user_email=row[2],
-                        tool_name=row[3]
-                    ).set(row[4])
+                # Tool metrics
+                cur.execute("SELECT COUNT(*) FROM public.tool")
+                self.total_tools.set(cur.fetchone()[0])
 
                 # Function metrics
                 cur.execute("SELECT COUNT(*) FROM public.function")

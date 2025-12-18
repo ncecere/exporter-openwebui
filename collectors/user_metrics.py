@@ -1,5 +1,4 @@
-from prometheus_client import Gauge, Counter
-from datetime import datetime
+from prometheus_client import Gauge
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,11 +14,6 @@ class UserMetricsCollector:
         self.active_users = Gauge('openwebui_users_active', 'Number of active users')
         self.active_users_30min = Gauge('openwebui_active_users', 'Number of users active in the last 30 minutes')
         self.users_by_role = Gauge('openwebui_users_by_role', 'Number of users by role', ['role'])
-
-        # User activity
-        self.user_last_active = Gauge('openwebui_user_last_active_seconds',
-                                    'Timestamp of last user activity',
-                                    ['user_id', 'user_name', 'user_email'])
 
         # Start collecting metrics
         self.collect_metrics()
@@ -53,23 +47,6 @@ class UserMetricsCollector:
                 """)
                 for role, count in cur.fetchall():
                     self.users_by_role.labels(role=role).set(count)
-
-                # Debug: Last active timestamps with user names and emails
-                debug_query = """
-                    SELECT id, name, email, last_active_at
-                    FROM public.user
-                """
-                cur.execute(debug_query)
-                results = cur.fetchall()
-                logger.info("Debug - User activity:")
-                for row in results:
-                    user_id, user_name, user_email, last_active = row
-                    logger.info(f"User: {user_id}, Name: {user_name}, Email: {user_email}, Last Active: {last_active}")
-                    self.user_last_active.labels(
-                        user_id=user_id,
-                        user_name=user_name,
-                        user_email=user_email
-                    ).set(last_active)
 
         except Exception as e:
             logger.error(f"Error collecting user metrics: {e}")
