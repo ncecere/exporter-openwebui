@@ -62,8 +62,7 @@ class ModelMetricsCollector:
                         """
                         SELECT user_id, chat
                         FROM public.chat
-                        WHERE chat->'messages' IS NOT NULL
-                          AND user_id IS NOT NULL
+                        WHERE user_id IS NOT NULL
                           AND updated_at >= %s
                         """,
                         (cutoff_epoch,),

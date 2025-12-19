@@ -59,8 +59,7 @@ class ChatMetricsCollector:
                     stream_cur.execute("""
                         SELECT id, archived, pinned, chat
                         FROM public.chat
-                        WHERE chat->'messages' IS NOT NULL
-                          AND updated_at >= %s
+                        WHERE updated_at >= %s
                     """, (cutoff_epoch,))
                     model_chat_counts = {}
                     model_archived_counts = {}
@@ -103,9 +102,7 @@ class ChatMetricsCollector:
                                     continue
 
                                 models_in_chat.add(cleaned_model)
-                                model_message_counts[cleaned_model] = (
-                                    model_message_counts.get(cleaned_model, 0) + 1
-                                )
+                                model_message_counts[cleaned_model] = model_message_counts.get(cleaned_model, 0) + 1
 
                             if not models_in_chat:
                                 continue
